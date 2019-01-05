@@ -33,3 +33,7 @@ Typical usage is to be run periodically from a Cron job.
 - **-d --debug**
 
     Activate the debug flag (show SMTP details).
+
+- **-l --list**
+
+    List the sites monitored.
