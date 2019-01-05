@@ -1,4 +1,7 @@
 check.cfg
+check_states.dat
+
+# After is Github generated ignore list
 
 !Build/
 .last_cover_stats
