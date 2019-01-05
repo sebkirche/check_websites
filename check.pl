@@ -208,6 +208,10 @@ Show verbose messages during processing.
 
 Activate the debug flag (show SMTP details).
 
+=item B<-l --list>
+
+List the sites monitored.
+
 =back
 
 =cut
