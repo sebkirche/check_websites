@@ -19,6 +19,8 @@ use Pod::Usage;
 use POSIX qw( strftime );
 use Sys::Hostname;
 
+$|++; # auto flush messages
+$Data::Dumper::Sortkeys = 1;
 
 my ($arg_hlp, $arg_man, $arg_debug, $arg_verbose, $arg_list) = (0,0,0,0,0);
 GetOptions(
@@ -117,10 +119,13 @@ for my $p (@$pages){
             say " was not monitored yet." if $arg_verbose;
         }
         $persist->{$name}{digest} = $digest;
+    } else {
+        say STDERR "$url returned ", $res->status_line;
     }
     
     $persist->{$name}{last_check_res} = $status;
     $persist->{$name}{last_check_time} = strftime($iso_time, gmtime time);
+    $persist->{$name}{last_ok_time} = $persist->{$name}{last_check_time} if $res->is_success;
 }
 
 open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for saving states: $!";
