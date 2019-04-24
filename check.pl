@@ -125,7 +125,9 @@ for my $p (@$pages){
         }
         $persist->{$name}{digest} = $digest;
     } else {
-        say STDERR "$url returned ", $res->status_line;
+        my $msg = " $url returned `" . $res->status_line .'`';
+        say STDERR $msg;
+        send_mail($mail_from, $mail_to, "Problem while checking for '$name'", $msg);
     }
     
     $persist->{$name}{last_check_res} = $status;
@@ -139,7 +141,7 @@ print $p $dd->Dump;
 close $p;
 
 sub list_sites {
-    for my $site (@$pages){
+    for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
         my $detail = "";
         $detail = "(Full page)" unless exists $site->{xpath};
         say sprintf "%s - %s %s", $site->{name}, $site->{url}, $detail;
@@ -148,19 +150,26 @@ sub list_sites {
 
 sub notify_change {
     my ($name, $url) = @_;
+    send_mail($mail_from, $mail_to, "Change detected for '$name'", <<"CHANGE");
+A change has been detected in the page of "$name"
+URL is $url
+CHANGE
+}
+
+sub send_mail {
+    my ($from, $to, $subject, $message) = @_;
     
     my $smtp = Net::SMTP->new($mail_server, $arg_debug ? (Debug => 1) : ());
     if($smtp){
-        $smtp->mail($mail_from);
-        if($smtp->to(split /,/, $mail_to)){
+        $smtp->mail($from);
+        if($smtp->to(split /,/, $to)){
             $smtp->data(<<"MSG");
-From: $mail_from
-To: $mail_to
-Subject: change detected for "$name"
+From: ${from}
+To: ${to}
+Subject: ${subject}
 Content-Type: text/plain;
 
-A change has been detected in the page of "$name"
-URL is $url
+${message}
 ---
 Sent by $path/$script from $whom\@$host.
 MSG
