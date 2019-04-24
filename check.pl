@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
@@ -41,6 +42,10 @@ my $cfg_file = "$Bin/check.cfg";
 # Read our poor man's config file
 die "Missing config $cfg_file" unless -e $cfg_file;
 my $cfg = do $cfg_file;
+die "Cannot parse $cfg_file: $@" if $@;
+die "Cannot do $cfg_file: $!" unless defined $cfg;
+die "Cannot run $cfg_file" unless $cfg;
+
 my $pages        = $cfg->{pages};
 my $persist_file = $cfg->{persist_file};
 my $mail_from    = $cfg->{mail_from};
@@ -154,10 +159,10 @@ To: $mail_to
 Subject: change detected for "$name"
 Content-Type: text/plain;
 
-I am $path/$script for $whom\@$host.
-
 A change has been detected in the page of "$name"
 URL is $url
+---
+Sent by $path/$script from $whom\@$host.
 MSG
         } else {
             say STDERR "Failed to send mail: ", $smtp->message();
