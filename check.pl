@@ -1,5 +1,14 @@
 #!/usr/bin/env perl
 
+# check.pl is a tool to check websites periodicaly
+# and notify by mail if something has changed (usually, a new version of a software is available)
+#
+# The basic mean to check if something has changed is
+# - retrieve an url
+# - perform an md5 hash of the retrieved content
+# - if the hash is different from the previous, notify that
+# - you can limit the check to a portion of the document to retrieve by using the xpath of a sub part
+
 use strict;
 use warnings;
 use feature 'say';
@@ -81,7 +90,7 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
-say strftime($iso_time, gmtime time);
+printf "%s --------------------------------------------------\n", strftime($iso_time, gmtime time);
 # map { my $p = $_; say "$p->{name} = $p->{url}" } @$pages;
 for my $p (@$pages){
     my $name = $p->{name};
@@ -108,12 +117,21 @@ for my $p (@$pages){
             # else we are computing the change of the whole document
             $content = $res->decoded_content;
         }
+        
         # md5_hex expects a string of bytes for input, but content is a decoded string 
         # (i.e a string that may content Unicode Code Points). Explicitly encode the string if needed.
         my $digest = md5_hex( utf8::is_utf8($content) ? Encode::encode_utf8($content) : $content);
+        
         if (defined $persist->{$name}{digest}){
-            my $old = $persist->{$name}{digest};
-            if ($digest eq $old){
+            # we previously managed to get a hash
+            my $previous_digest = $persist->{$name}{digest};
+            if ($digest eq $previous_digest){
+                # this is the same content than previously
+                my $last_res = $persist->{$name}{last_check_res};
+                if ($last_res !~ /^2/){
+                    my $msg = "Previous check of $url got `$last_res`";
+                    send_mail($mail_from, $mail_to, "'$name' is back online", $msg);
+                }
                 say " has not changed." if $arg_verbose;
             } else {
                 say " HAS CHANGED !!!" if $arg_verbose;
@@ -121,13 +139,23 @@ for my $p (@$pages){
             }
 
         } else {
+            # first time we have a result for the url
             say " was not monitored yet." if $arg_verbose;
         }
-        $persist->{$name}{digest} = $digest;
+        $persist->{$name}{digest} = $digest; # save the hash
     } else {
-        my $msg = " $url returned `" . $res->status_line .'`';
-        say STDERR $msg;
-        send_mail($mail_from, $mail_to, "Problem while checking for '$name'", $msg);
+        my $msg = "$url returned `" . $status .'`';
+        say STDERR " $msg";
+        if (defined $persist->{$name}{last_check_res} && $persist->{$name}{last_check_res} !~ /^2/){
+            if ($persist->{$name}{last_check_res} ne $status){
+                # different error from previous time
+                $msg .= "\nPrevious check got `$persist->{$name}{last_check_res}`";
+                send_mail($mail_from, $mail_to, "Different problem encountered while checking for '$name'", $msg);
+            }
+        } else {
+            # first error
+            send_mail($mail_from, $mail_to, "Problem encountered while checking for '$name'", $msg);
+        }
     }
     
     $persist->{$name}{last_check_res} = $status;
@@ -170,6 +198,7 @@ Subject: ${subject}
 Content-Type: text/plain;
 
 ${message}
+
 ---
 Sent by $path/$script from $whom\@$host.
 MSG
