@@ -68,11 +68,6 @@ my $whom = getlogin();
 my $path = cwd();
 my $script = basename($0);
 
-if ($arg_list){
-    list_sites();
-    exit 0;
-}
-
 # reload persisted data
 if (-e "$Bin/$persist_file"){
     my $data = do "$Bin/$persist_file";
@@ -81,6 +76,10 @@ if (-e "$Bin/$persist_file"){
 }
 # say p $persist;
 
+if ($arg_list){
+    list_sites();
+    exit 0;
+}
 
 # Define a custom User-Agent
 # - to use the environment-defined proxy
@@ -170,9 +169,16 @@ close $p;
 
 sub list_sites {
     for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
-        my $detail = "";
-        $detail = "(Full page)" unless exists $site->{xpath};
-        say sprintf "%s - %s %s", $site->{name}, $site->{url}, $detail;
+        my $url = $site->{url};
+        $url .= "(Full page)" unless exists $site->{xpath};
+        my $last = "";
+        if ($arg_verbose){
+            my $state = $persist->{$site->{name}};
+            if (defined $state){
+                $last .= " - $state->{last_check_res} ($state->{last_check_time})";
+            }
+        }
+        say sprintf "%30s - %-60s%s", $site->{name}, $url, $last;
     }
 }
 
