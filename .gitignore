@@ -1,5 +1,6 @@
 check.cfg
 check_states.dat
+*.cron
 
 # After is Github generated ignore list
 
