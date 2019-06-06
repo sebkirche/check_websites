@@ -62,10 +62,9 @@ my $mail_to      = $cfg->{mail_to};
 my $mail_server  = $cfg->{mail_server};
 my $persist = {};
 
-my $iso_time = '%Y-%m-%dT%H:%M:%SZ';
-my $host = hostname();
-my $whom = getlogin();
-my $path = cwd();
+my $host   = hostname();
+my $whom   = getlogin();
+my $path   = cwd();
 my $script = basename($0);
 
 # reload persisted data
@@ -89,12 +88,17 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
-printf "%s --------------------------------------------------\n", strftime($iso_time, gmtime time);
+printf "%s --------------------------------------------------\n", stringify_datetime(time, 1);
 # map { my $p = $_; say "$p->{name} = $p->{url}" } @$pages;
-for my $p (@$pages){
+PAGE: for my $p (@$pages){
     my $name = $p->{name};
     my $url = $p->{url};
+    my $enabled = $p->{enable} // 1;
     print "'$name'" if $arg_verbose;
+    unless ($enabled){
+        print " is disabled.\n" if $arg_verbose;
+        next PAGE;
+    }
 
     # get the page
     my $req = new HTTP::Request( GET => $url );
@@ -158,7 +162,7 @@ for my $p (@$pages){
     }
     
     $persist->{$name}{last_check_res} = $status;
-    $persist->{$name}{last_check_time} = strftime($iso_time, gmtime time);
+    $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
     $persist->{$name}{last_ok_time} = $persist->{$name}{last_check_time} if $res->is_success;
 }
 
@@ -177,9 +181,22 @@ sub list_sites {
             if (defined $state){
                 $last .= " - $state->{last_check_res} ($state->{last_check_time})";
             }
+            $last .= " (DISABLED)" unless $site->{enable} // 1;
         }
         say sprintf "%30s - %-60s%s", $site->{name}, $url, $last;
     }
+}
+
+# return the string of a date and time
+# pass non-undef as 2nd argument if you want the local time representation
+sub stringify_datetime {
+    my $date = shift;
+    my $wantlocal = shift;
+    my $iso_time_fmt   = '%Y-%m-%dT%H:%M:%SZ';
+    my $human_time_fmt = '%d %b %Y %H:%M:%S';
+    my @date_parts = gmtime $date;
+    @date_parts = localtime $date if $wantlocal;
+    return strftime $human_time_fmt, @date_parts;
 }
 
 sub notify_change {
