@@ -22,12 +22,16 @@ use Encode;
 use File::Basename;
 use FindBin qw( $Bin ); # use to know the running dir $Bin is built-in variable
 use Getopt::Long;
+use HTML::TreeBuilder;
 use HTML::TreeBuilder::XPath;
 use LWP::UserAgent;
+use MIME::Base64;
 use Net::SMTP;
 use Pod::Usage;
 use POSIX qw( strftime );
 use Sys::Hostname;
+use Text::Diff;
+use Compress::Zlib;
 
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
@@ -116,6 +120,15 @@ PAGE: for my $p (@$pages){
             $tree->parse($res->decoded_content);
             $content = $tree->findvalue($xpath);
             $tree->delete;
+        } elsif (exists $p->{rx_match}){
+            my $re = $p->{rx_match};
+            # say $re;
+            my $tree = new HTML::TreeBuilder;
+            $tree->parse($res->decoded_content);
+            $content = $tree->as_text;
+            if ($content =~ /$re/){
+                $content = $&;
+            }
         } else {
             # else we are computing the change of the whole document
             $content = $res->decoded_content;
@@ -123,7 +136,10 @@ PAGE: for my $p (@$pages){
         
         # md5_hex expects a string of bytes for input, but content is a decoded string 
         # (i.e a string that may content Unicode Code Points). Explicitly encode the string if needed.
-        my $digest = md5_hex( utf8::is_utf8($content) ? Encode::encode_utf8($content) : $content);
+        if (utf8::is_utf8($content)){
+            $content = Encode::encode_utf8($content);
+        }
+        my $digest = md5_hex($content);
         
         if (defined $persist->{$name}{digest}){
             # we previously managed to get a hash
@@ -138,7 +154,12 @@ PAGE: for my $p (@$pages){
                 say " has not changed." if $arg_verbose;
             } else {
                 say " HAS CHANGED !!!" if $arg_verbose;
-                notify_change($name, $url);
+                my $diff;
+                if ($persist->{$name}{data}){
+                    my $ori = uncompress(decode_base64($persist->{$name}{data}));
+                    $diff = diff(\($ori."\n"), \($content."\n"));
+                }
+                notify_change($name, $url, $diff);
             }
 
         } else {
@@ -146,6 +167,11 @@ PAGE: for my $p (@$pages){
             say " was not monitored yet." if $arg_verbose;
         }
         $persist->{$name}{digest} = $digest; # save the hash
+        # same comment than for mdh_hex: compress expects bytes
+        # we could also "use bytes;"
+        my $data = encode_base64(compress($content), '');
+        chomp($data);
+        $persist->{$name}{data} = $data; # save the data for future diff
     } else {
         my $msg = "$url returned `" . $status .'`';
         say STDERR " $msg";
@@ -200,10 +226,11 @@ sub stringify_datetime {
 }
 
 sub notify_change {
-    my ($name, $url) = @_;
+    my ($name, $url, $diff) = @_;
+    $diff = $diff ? "\n\nDiff: $diff" : '';
     send_mail($mail_from, $mail_to, "Change detected for '$name'", <<"CHANGE");
-A change has been detected in the page of "$name"
-URL is $url
+A change has been detected in the page of "${name}"
+URL is ${url}${diff}
 CHANGE
 }
 
@@ -221,7 +248,6 @@ Subject: ${subject}
 Content-Type: text/plain;
 
 ${message}
-
 ---
 Sent by $path/$script from $whom\@$host.
 MSG
