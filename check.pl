@@ -157,9 +157,16 @@ PAGE: for my $p (@$pages){
                 my $diff;
                 if ($persist->{$name}{data}){
                     my $ori = uncompress(decode_base64($persist->{$name}{data}));
-                    $diff = diff(\($ori."\n"), \($content."\n"));
+                    $diff = diff(\($ori."\n"), \($content."\n")) if $ori;
                 }
                 notify_change($name, $url, $diff);
+
+                # Save the retrieved data only on fetch success & change
+                # same comment than for md5_hex: compress expects bytes
+                # we could also "use bytes;"
+                my $data = encode_base64(compress($content), '');
+                chomp($data);
+                $persist->{$name}{data} = $data; # save the data for future diff
             }
 
         } else {
@@ -167,11 +174,6 @@ PAGE: for my $p (@$pages){
             say " was not monitored yet." if $arg_verbose;
         }
         $persist->{$name}{digest} = $digest; # save the hash
-        # same comment than for mdh_hex: compress expects bytes
-        # we could also "use bytes;"
-        my $data = encode_base64(compress($content), '');
-        chomp($data);
-        $persist->{$name}{data} = $data; # save the data for future diff
     } else {
         my $msg = "$url returned `" . $status .'`';
         say STDERR " $msg";
