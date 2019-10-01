@@ -210,7 +210,8 @@ sub list_sites {
     }
     for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
         my $url = $site->{url};
-        my $part = exists $site->{xpath} ? $site->{xpath} : "(Full page)";
+        my $part = exists $site->{xpath} ? 'XPath:'.$site->{xpath} :
+            exists $site->{rx_match} ? 'Rx:/'.$site->{rx_match}.'/' : "(Full page)";
         my $last = "";
         if ($arg_verbose){
             my $state = $persist->{$site->{name}};
