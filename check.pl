@@ -203,18 +203,25 @@ print $p $dd->Dump;
 close $p;
 
 sub list_sites {
+    if ($arg_verbose){
+        say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part';
+    } else {
+        say sprintf "%35s - %-60s", 'Name', 'URL';
+    }
     for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
         my $url = $site->{url};
-        $url .= "(Full page)" unless exists $site->{xpath};
+        my $part = exists $site->{xpath} ? $site->{xpath} : "(Full page)";
         my $last = "";
         if ($arg_verbose){
             my $state = $persist->{$site->{name}};
             if (defined $state){
-                $last .= " - $state->{last_check_res} ($state->{last_check_time})";
+                $last .= "$state->{last_check_res} ($state->{last_check_time})";
             }
             $last .= " (DISABLED)" unless $site->{enable} // 1;
+            say sprintf "%35s - %-60s %-35s %s", $site->{name}, $url, $last, $part;
+        } else {
+            say sprintf "%35s - %-60s", $site->{name}, $url;
         }
-        say sprintf "%30s - %-60s%s", $site->{name}, $url, $last;
     }
 }
 
