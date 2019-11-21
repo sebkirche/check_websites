@@ -93,7 +93,7 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
-printf "%s --------------------------------------------------\n", stringify_datetime(time, 1);
+printf "%s --------------------------------------------------\n", stringify_datetime(time, 1) if $arg_verbose;
 
 # first, we check if network is OK (no need to report one fail per page then)
 my $check = retrieve_url($ua, HEAD => $net_check);
@@ -214,6 +214,8 @@ open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for
 my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
 print $p $dd->Dump;
 close $p;
+
+say "Done." if $arg_verbose;
 
 sub retrieve_url {
     my ($ua, $method, $url) = @_;
