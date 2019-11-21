@@ -120,8 +120,8 @@ PAGE: for my $p (@$pages){
     my $res = retrieve_url($ua, GET => $url);
     
     my $status = $res->status_line;
-    print " ($status)" if $arg_debug;
-
+    print " ($url => $status)" if $arg_debug;
+    
     if ($res->is_success){
         my $content;
         if( exists $p->{xpath} ){
@@ -168,10 +168,10 @@ PAGE: for my $p (@$pages){
                 my $diff;
                 if ($persist->{$name}{data}){
                     my $ori = Compress::Zlib::memGunzip(decode_base64($persist->{$name}{data}));
-                    $diff = diff(\($ori."\n"), \($content."\n")) if $ori;
+                    $diff = diff( [$ori."\n"], [$content."\n"]) if $ori;
                 }
                 notify_change($name, $url, $diff);
-
+        
                 # Save the retrieved data only on fetch success & change
                 # same comment than for md5_hex: compress expects bytes
                 # we could also "use bytes;"
@@ -179,7 +179,7 @@ PAGE: for my $p (@$pages){
                 chomp($data);
                 $persist->{$name}{data} = $data; # save the data for future diff
             }
-
+            
         } else {
             # first time we have a result for the url
             say " was not monitored yet." if $arg_verbose;
@@ -189,9 +189,10 @@ PAGE: for my $p (@$pages){
         }
         $persist->{$name}{digest} = $digest; # save the hash
     } else {
+        # Retrieve failed
         my $msg = "$url returned `" . $status .'`';
         say STDERR " $msg";
-        if (defined $persist->{$name}{last_check_res} && $persist->{$name}{last_check_res} !~ /^2/){
+        if ((defined $persist->{$name}{last_check_res}) && ($persist->{$name}{last_check_res} !~ /^2/)){
             if ($persist->{$name}{last_check_res} ne $status){
                 # different error from previous time
                 $msg .= "\nPrevious check got `$persist->{$name}{last_check_res}`";
