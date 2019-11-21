@@ -93,6 +93,8 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
+printf "%s --------------------------------------------------\n", stringify_datetime(time, 1);
+
 # first, we check if network is OK (no need to report one fail per page then)
 my $check = retrieve_url($ua, HEAD => $net_check);
 unless ($check->is_success){
@@ -104,7 +106,6 @@ unless ($check->is_success){
     exit 1;
 }
 
-printf "%s --------------------------------------------------\n", stringify_datetime(time, 1);
 # map { my $p = $_; say "$p->{name} = $p->{url}" } @$pages;
 PAGE: for my $p (@$pages){
     my $name = $p->{name};
