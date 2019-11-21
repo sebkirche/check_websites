@@ -59,6 +59,7 @@ die "Cannot parse $cfg_file: $@" if $@;
 die "Cannot do $cfg_file: $!" unless defined $cfg;
 die "Cannot run $cfg_file" unless $cfg;
 
+my $net_check    = $cfg->{net_check};
 my $pages        = $cfg->{pages};
 my $persist_file = $cfg->{persist_file};
 my $mail_from    = $cfg->{mail_from};
@@ -92,6 +93,17 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
+# first, we check if network is OK (no need to report one fail per page then)
+my $check = retrieve_url($ua, HEAD => $net_check);
+unless ($check->is_success){
+    my $status = $check->status_line;
+    my $msg = "Net check on $net_check got `$status`.";
+    say STDERR $msg;
+    say STDERR "Aborting.";
+    send_mail($mail_from, $mail_to, "Network check failed", $msg);
+    exit 1;
+}
+
 printf "%s --------------------------------------------------\n", stringify_datetime(time, 1);
 # map { my $p = $_; say "$p->{name} = $p->{url}" } @$pages;
 PAGE: for my $p (@$pages){
@@ -105,8 +117,7 @@ PAGE: for my $p (@$pages){
     }
 
     # get the page
-    my $req = new HTTP::Request( GET => $url );
-    my $res = $ua->request($req);
+    my $res = retrieve_url($ua, GET => $url);
     
     my $status = $res->status_line;
     print " ($status)" if $arg_debug;
@@ -201,6 +212,13 @@ open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for
 my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
 print $p $dd->Dump;
 close $p;
+
+sub retrieve_url {
+    my ($ua, $method, $url) = @_;
+    my $req = new HTTP::Request( $method => $url );
+    my $res = $ua->request($req);
+    return $res;
+}
 
 sub list_sites {
     if ($arg_verbose){
