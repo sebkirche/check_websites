@@ -161,6 +161,7 @@ PAGE: for my $p (@$pages){
                 my $last_res = $persist->{$name}{last_check_res};
                 if ($last_res !~ /^2/){
                     my $msg = "Previous check of $url got `$last_res`";
+                    $msg .= "\n(Last time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.)';
                     send_mail($mail_from, $mail_to, "'$name' is back online", $msg);
                 }
                 say " has not changed." if $arg_verbose;
@@ -193,10 +194,11 @@ PAGE: for my $p (@$pages){
         # Retrieve failed
         my $msg = "$url returned `" . $status .'`';
         say STDERR " $msg";
+        $msg .= "\n(Last time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.)';
         if ((defined $persist->{$name}{last_check_res}) && ($persist->{$name}{last_check_res} !~ /^2/)){
             if ($persist->{$name}{last_check_res} ne $status){
                 # different error from previous time
-                $msg .= "\nPrevious check got `$persist->{$name}{last_check_res}`";
+                $msg .= "\nPrevious problem was `$persist->{$name}{last_check_res}`";
                 send_mail($mail_from, $mail_to, "Different problem encountered while checking for '$name'", $msg);
             }
         } else {
