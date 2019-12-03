@@ -28,7 +28,7 @@ use LWP::UserAgent;
 use MIME::Base64;
 use Net::SMTP;
 use Pod::Usage;
-use POSIX qw( strftime );
+use POSIX qw( setlocale LC_TIME strftime );
 use Sys::Hostname;
 use Text::Diff;
 use Compress::Zlib;
@@ -71,6 +71,7 @@ my $host   = hostname();
 my $whom   = getlogin();
 my $path   = cwd();
 my $script = basename($0);
+setlocale(LC_TIME, 'C');        # to avoid incorrectly encoded accents in the mail - need to set it as setting?
 
 # reload persisted data
 if (-e "$Bin/$persist_file"){
