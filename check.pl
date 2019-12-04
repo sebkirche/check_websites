@@ -160,10 +160,11 @@ PAGE: for my $p (@$pages){
             if ($digest eq $previous_digest){
                 # this is the same content than previously
                 my $last_res = $persist->{$name}{last_check_res};
+                my $last_time = $persist->{$name}{last_check_time};
                 if ($last_res !~ /^2/){
-                    my $msg = "Previous check of $url got `$last_res`";
-                    $msg .= "\n(Last time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.)';
-                    send_mail($mail_from, $mail_to, "'$name' is back online", $msg);
+                    my $msg = "Previous check of ${url} at ${last_time} got `${last_res}`.";
+                    $msg .= "\nLast time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.';
+                    send_mail($mail_from, $mail_to, "'${name}' is back online", $msg);
                 }
                 say " has not changed." if $arg_verbose;
             } else {
@@ -195,7 +196,7 @@ PAGE: for my $p (@$pages){
         # Retrieve failed
         my $msg = "$url returned `" . $status .'`';
         say STDERR " $msg";
-        $msg .= "\n(Last time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.)';
+        $msg .= "\nLast time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.';
         if ((defined $persist->{$name}{last_check_res}) && ($persist->{$name}{last_check_res} !~ /^2/)){
             if ($persist->{$name}{last_check_res} ne $status){
                 # different error from previous time
