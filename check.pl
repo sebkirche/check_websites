@@ -14,7 +14,6 @@ use warnings;
 use feature 'say';
 use utf8;
 
-use Cwd qw( cwd );
 use Data::Dumper;
 use Data::Printer;
 use Digest::MD5 'md5_hex';
@@ -69,7 +68,7 @@ my $persist = {};
 
 my $host   = hostname();
 my $whom   = getlogin();
-my $path   = cwd();
+my $path   = $Bin;
 my $script = basename($0);
 setlocale(LC_TIME, 'C');        # to avoid incorrectly encoded accents in the mail - need to set it as setting?
 
