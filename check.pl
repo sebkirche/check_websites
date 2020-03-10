@@ -58,13 +58,13 @@ die "Cannot parse $cfg_file: $@" if $@;
 die "Cannot do $cfg_file: $!" unless defined $cfg;
 die "Cannot run $cfg_file" unless $cfg;
 
-my $net_check    = $cfg->{net_check};
-my $pages        = $cfg->{pages};
-my $persist_file = $cfg->{persist_file};
-my $mail_from    = $cfg->{mail_from};
-my $mail_to      = $cfg->{mail_to};
-my $mail_server  = $cfg->{mail_server};
-my $persist = {};
+my $net_check       = $cfg->{net_check};
+my $pages           = $cfg->{pages};
+my $persist_file    = $cfg->{persist_file};
+my $mail_from       = $cfg->{mail_from};
+my $default_mail_to = $cfg->{mail_to};
+my $mail_server     = $cfg->{mail_server};
+my $persist         = {};
 
 my $host   = hostname();
 my $whom   = getlogin();
@@ -100,17 +100,18 @@ my $check = retrieve_url($ua, HEAD => $net_check);
 unless ($check->is_success){
     my $status = $check->status_line;
     my $msg = "Net check on $net_check got `$status`.";
+    send_mail($mail_from, $default_mail_to, "Network check failed", $msg);
     say STDERR $msg;
     say STDERR "Aborting.";
-    send_mail($mail_from, $mail_to, "Network check failed", $msg);
     exit 1;
 }
 
 # map { my $p = $_; say "$p->{name} = $p->{url}" } @$pages;
 PAGE: for my $p (@$pages){
-    my $name = $p->{name};
-    my $url = $p->{url};
-    my $enabled = $p->{enable} // 1;
+    my $name        = $p->{name};
+    my $url         = $p->{url};
+    my $notify_mail = $p->{mail_to} // $default_mail_to;
+    my $enabled     = $p->{enable} // 1;
     print "'$name'" if $arg_verbose;
     unless ($enabled){
         print " is disabled.\n" if $arg_verbose;
@@ -163,7 +164,7 @@ PAGE: for my $p (@$pages){
                 if ($last_res !~ /^2/){
                     my $msg = "Previous check of ${url} at ${last_time} got `${last_res}`.";
                     $msg .= "\nLast time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.';
-                    send_mail($mail_from, $mail_to, "'${name}' is back online", $msg);
+                    send_mail($mail_from, $default_mail_to, "'${name}' is back online", $msg);
                 }
                 say " has not changed." if $arg_verbose;
             } else {
@@ -173,7 +174,8 @@ PAGE: for my $p (@$pages){
                     my $ori = Compress::Zlib::memGunzip(decode_base64($persist->{$name}{data}));
                     $diff = diff( [$ori."\n"], [$content."\n"]) if $ori;
                 }
-                notify_change($name, $url, $diff);
+                # Note: empty defined email allows disabling email
+                notify_change($name, $url, $diff, $notify_mail) if $notify_mail;
         
                 # Save the retrieved data only on fetch success & change
                 # same comment than for md5_hex: compress expects bytes
@@ -200,11 +202,11 @@ PAGE: for my $p (@$pages){
             if ($persist->{$name}{last_check_res} ne $status){
                 # different error from previous time
                 $msg .= "\nPrevious problem was `$persist->{$name}{last_check_res}`";
-                send_mail($mail_from, $mail_to, "Different problem encountered while checking for '$name'", $msg);
+                send_mail($mail_from, $default_mail_to, "Different problem encountered while checking for '$name'", $msg);
             }
         } else {
             # first error
-            send_mail($mail_from, $mail_to, "Problem encountered while checking for '$name'", $msg);
+            send_mail($mail_from, $default_mail_to, "Problem encountered while checking for '$name'", $msg);
         }
     }
     
@@ -264,9 +266,9 @@ sub stringify_datetime {
 }
 
 sub notify_change {
-    my ($name, $url, $diff) = @_;
+    my ($name, $url, $diff, $email) = @_;
     $diff = $diff ? "\n\nDiff: $diff" : '';
-    send_mail($mail_from, $mail_to, "Change detected for '$name'", <<"CHANGE");
+    send_mail($mail_from, $email, "Change detected for '$name'", <<"CHANGE");
 A change has been detected in the page of "${name}"
 URL is ${url}${diff}
 CHANGE
