@@ -35,6 +35,8 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
+our $VERSION = '0.9.1';
+
 my ($arg_hlp, $arg_man, $arg_debug, $arg_verbose, $arg_list) = (0,0,0,0,0);
 GetOptions(
     'help|h|?'  => \$arg_hlp,
@@ -289,7 +291,7 @@ Content-Type: text/plain;
 
 ${message}
 ---
-Sent by $path/$script from $whom\@$host.
+Sent by $path/$script v$VERSION from $whom\@$host.
 MSG
         } else {
             say STDERR "Failed to send mail: ", $smtp->message();
@@ -308,7 +310,7 @@ check.pl - An automatic page change tester written in Perl.
 
 =head1 VERSION
 
-v0.9
+v0.9.1
 
 =head1 SYNOPSIS
 

@@ -4,7 +4,7 @@ check.pl - An automatic page change tester written in Perl.
 
 # VERSION
 
-v0.9
+v0.9.1
 
 # SYNOPSIS
 
