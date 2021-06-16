@@ -20,7 +20,7 @@ use Digest::MD5 'md5_hex';
 use Encode;
 use File::Basename;
 use FindBin qw( $Bin ); # use to know the running dir $Bin is built-in variable
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case bundling auto_version);
 use HTML::TreeBuilder;
 use HTML::TreeBuilder::XPath;
 use LWP::UserAgent;
@@ -37,20 +37,20 @@ $Data::Dumper::Sortkeys = 1;
 
 our $VERSION = '0.9.2';
 
-my ($arg_hlp, $arg_man, $arg_debug, $arg_verbose, $arg_list, $arg_testonly) = (0,0,0,0,0,0);
-GetOptions(
-    'help|h|?'  => \$arg_hlp,
-    'man'       => \$arg_man,
-    'debug|d'   => \$arg_debug,
-    'list|l'    => \$arg_list,
-    'test|t'    => \$arg_testonly,
-    'verbose|v' => \$arg_verbose,
+my %args;
+GetOptions(\%args,
+    'help|h|?',
+    'man',
+    'debug|d',
+    'list|l',
+    'test|t',
+    'verbose|v'
     ) or pod2usage(2);
-pod2usage(1) if $arg_hlp;
-pod2usage(-exitval => 0, -verbose => 2) if $arg_man;
+pod2usage(1) if $args{help};
+pod2usage(-exitval => 0, -verbose => 2) if $args{man};
 
 # debug implies verbose
-$arg_verbose = 1 if $arg_debug;
+$args{verbose} = 1 if $args{debug};
 
 my $cfg_file = "$Bin/check.cfg";
 
@@ -83,7 +83,7 @@ if (-e "$Bin/$persist_file"){
 }
 # say p $persist;
 
-if ($arg_list){
+if ($args{list}){
     list_sites();
     exit 0;
 }
@@ -96,7 +96,7 @@ my $ua = new LWP::UserAgent(
     agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
     );
 
-printf "%s --------------------------------------------------\n", stringify_datetime(time, 1) if $arg_verbose;
+printf "%s --------------------------------------------------\n", stringify_datetime(time, 1) if $args{verbose};
 
 # first, we check if network is OK (no need to report one fail per page then)
 my $check = retrieve_url($ua, HEAD => $net_check);
@@ -115,9 +115,9 @@ PAGE: for my $p (@$pages){
     my $url         = $p->{url};
     my $notify_mail = $p->{mail_to} // $default_mail_to;
     my $enabled     = $p->{enable} // 1;
-    print "'$name'" if $arg_verbose;
+    print "'$name'" if $args{verbose};
     unless ($enabled){
-        print " is disabled.\n" if $arg_verbose;
+        print " is disabled.\n" if $args{verbose};
         next PAGE;
     }
 
@@ -125,7 +125,7 @@ PAGE: for my $p (@$pages){
     my $res = retrieve_url($ua, GET => $url);
     
     my $status = $res->status_line;
-    print " ($url => $status)" if $arg_debug;
+    print " ($url => $status)" if $args{debug};
     
     if ($res->is_success){
         my $content;
@@ -148,9 +148,9 @@ PAGE: for my $p (@$pages){
                 $tree->parse($res->decoded_content);
                 $content = $tree->as_text;
             }
-            say $re if $arg_debug;
+            say $re if $args{debug};
             if ($content =~ /$re/){
-                say " matches" if $arg_debug;
+                say " matches" if $args{debug};
                 $content = $1 || $&;
             }
         } else {
@@ -159,7 +159,7 @@ PAGE: for my $p (@$pages){
         }
 
         unless ($content){
-            say "No content ??" if $arg_testonly;
+            say "No content ??" if $args{test};
             my $check;
             if ($p->{xpath}){
                 $check = "XPath " . $p->{xpath};
@@ -168,7 +168,7 @@ PAGE: for my $p (@$pages){
             } elsif ($p->{rx_text}){
                 $check = "RX on body text: " . $p->{rx_text};
             }
-            send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $arg_testonly;
+            send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $args{test};
 In the page of "${name}" the specified check returns an empty result.
 $check
 URL: $url
@@ -194,10 +194,10 @@ EMPTY
                     $msg .= "\nLast time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.';
                     send_mail($mail_from, $default_mail_to, "'${name}' is back online", $msg);
                 }
-                say " has not changed." if $arg_verbose;
+                say " has not changed." if $args{verbose};
             } else {
-                if ($arg_verbose){
-                    if ($arg_testonly){
+                if ($args{verbose}){
+                    if ($args{test}){
                         say " HAS CHANGED ==> $content";
                     } else {
                         say " HAS CHANGED !!!";
@@ -208,7 +208,7 @@ EMPTY
                     my $ori = Compress::Zlib::memGunzip(decode_base64($persist->{$name}{data}));
                     $diff = diff( [$ori."\n"], [$content."\n"]) if $ori;
                 }
-                unless ($arg_testonly){
+                unless ($args{test}){
                     # Note: empty defined email allows disabling email
                     notify_change($name, $url, $diff, $notify_mail) if $notify_mail;
                 }
@@ -222,7 +222,7 @@ EMPTY
             
         } else {
             # first time we have a result for the url
-            say " was not monitored yet." if $arg_verbose;
+            say " was not monitored yet." if $args{verbose};
             my $data = encode_base64(Compress::Zlib::memGzip($content), '');
             chomp($data);
             $persist->{$name}{data} = $data; # save the data for future diff
@@ -250,13 +250,13 @@ EMPTY
     $persist->{$name}{last_ok_time} = $persist->{$name}{last_check_time} if $res->is_success;
 }
 
-unless ($arg_testonly){
+unless ($args{test}){
     open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for saving states: $!";
     my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
     print $p $dd->Dump;
     close $p;
 }
-say "Done." if $arg_verbose;
+say "Done." if $args{verbose};
 
 sub retrieve_url {
     my ($ua, $method, $url) = @_;
@@ -266,7 +266,7 @@ sub retrieve_url {
 }
 
 sub list_sites {
-    if ($arg_verbose){
+    if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
@@ -284,7 +284,7 @@ sub list_sites {
             $part = "(Full page)";
         }
         my $last = "";
-        if ($arg_verbose){
+        if ($args{verbose}){
             my $state = $persist->{$site->{name}};
             if (defined $state){
                 $last .= "$state->{last_check_res} ($state->{last_check_time})";
@@ -321,7 +321,7 @@ CHANGE
 sub send_mail {
     my ($from, $to, $subject, $message) = @_;
     
-    my $smtp = Net::SMTP->new($mail_server, $arg_debug ? (Debug => 1) : ());
+    my $smtp = Net::SMTP->new($mail_server, $args{debug} ? (Debug => 1) : ());
     if($smtp){
         $smtp->mail($from);
         if($smtp->to(split /,/, $to)){
