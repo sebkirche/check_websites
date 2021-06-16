@@ -10,7 +10,8 @@ die "Usage: $0 <url> /html/body/whatever" unless $#ARGV == 1;
 
 my $url = $ARGV[0];
 my $t = new HTML::TreeBuilder::XPath;
-my $ua = LWP::UserAgent->new(timeout => 10);
+my $ua = LWP::UserAgent->new(timeout => 10,
+                             agent   => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)');
 $ua->env_proxy;
 my $response = $ua->get($url);
 say $response->status_line;

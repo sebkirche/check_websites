@@ -35,16 +35,17 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.2';
+our $VERSION = '0.9.3';
 
 my %args;
 GetOptions(\%args,
-    'help|h|?',
-    'man',
-    'debug|d',
-    'list|l',
-    'test|t',
-    'verbose|v'
+           'help|h|?',
+           'man',
+           'debug|d',
+           'list|l',
+           'showdata|D',
+           'test|t',
+           'verbose|v'
     ) or pod2usage(2);
 pod2usage(1) if $args{help};
 pod2usage(-exitval => 0, -verbose => 2) if $args{man};
@@ -137,21 +138,25 @@ PAGE: for my $p (@$pages){
             $tree->eof;
             $content = $tree->findvalue($xpath);
             $tree->delete;
-        } elsif (exists $p->{rx_text} || exists $p->{rx_content} ){
+        } elsif (exists $p->{rx_text} || exists $p->{rx_raw} ){
             my $re;
-            if ($p->{rx_content}){
-                $re = $p->{rx_content};
+            if ($p->{rx_raw}){
+                $re = $p->{rx_raw};
                 $content = $res->content;
             } elsif ($p->{rx_text}){
                 $re = $p->{rx_text};
                 my $tree = new HTML::TreeBuilder;
                 $tree->parse($res->decoded_content);
+                $tree->eof;
                 $content = $tree->as_text;
             }
             say $re if $args{debug};
             if ($content =~ /$re/){
                 say " matches" if $args{debug};
                 $content = $1 || $&;
+            } else {
+                $content = "NO MATCH";
+                say " NO MATCH ??";
             }
         } else {
             # else we are computing the change of the whole document
@@ -163,8 +168,8 @@ PAGE: for my $p (@$pages){
             my $check;
             if ($p->{xpath}){
                 $check = "XPath " . $p->{xpath};
-            } elsif ($p->{rx_content}){
-                $check = "RX on html content: " . $p->{rx_content};
+            } elsif ($p->{rx_raw}){
+                $check = "RX on html content: " . $p->{rx_raw};
             } elsif ($p->{rx_text}){
                 $check = "RX on body text: " . $p->{rx_text};
             }
@@ -210,7 +215,7 @@ EMPTY
                 }
                 unless ($args{test}){
                     # Note: empty defined email allows disabling email
-                    notify_change($name, $url, $diff, $notify_mail) if $notify_mail;
+                    notify_change($name, $url, $diff, $notify_mail, $p->{additional}) if $notify_mail;
                 }
                 # Save the retrieved data only on fetch success & change
                 # same comment than for md5_hex: compress expects bytes
@@ -268,6 +273,8 @@ sub retrieve_url {
 sub list_sites {
     if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
+    } elsif ($args{showdata}) {
+        say sprintf "%35s - %-60s", 'Name', 'Last check', 'Value';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
     }
@@ -278,19 +285,26 @@ sub list_sites {
             $part = 'XPath:'.$site->{xpath};
         } elsif (exists $site->{rx_text}){
             $part = 'RxT:/'.$site->{rx_text}.'/';
-        } elsif (exists $site->{rx_content}){
-            $part = 'RxC:/'.$site->{rx_content}.'/';
+        } elsif (exists $site->{rx_raw}){
+            $part = 'RxC:/'.$site->{rx_raw}.'/';
         } else {
             $part = "(Full page)";
         }
         my $last = "";
+        my $value = "";
+        my $state = $persist->{$site->{name}};
+        if (defined $state){
+            $last .= "$state->{last_check_res} ($state->{last_check_time})";
+            $value = Compress::Zlib::memGunzip(decode_base64($persist->{$site->{name}}{data}));
+        } else {
+            $last .= "??";
+        }
+        $last .= " (DISABLED)" unless $site->{enable} // 1;
+
         if ($args{verbose}){
-            my $state = $persist->{$site->{name}};
-            if (defined $state){
-                $last .= "$state->{last_check_res} ($state->{last_check_time})";
-            }
-            $last .= " (DISABLED)" unless $site->{enable} // 1;
             say sprintf "%35s - %-60s %-35s %s", $site->{name}, $url, $last, $part;
+        } elsif ($args{showdata}) {
+            say sprintf "%35s - %-35s %s", $site->{name}, $last, $value;
         } else {
             say sprintf "%35s - %-60s", $site->{name}, $url;
         }
@@ -310,11 +324,12 @@ sub stringify_datetime {
 }
 
 sub notify_change {
-    my ($name, $url, $diff, $email) = @_;
+    my ($name, $url, $diff, $email, $add) = @_;
     $diff = $diff ? "\n\nDiff: $diff" : '';
     send_mail($mail_from, $email, "Change detected for '$name'", <<"CHANGE");
 A change has been detected in the page of "${name}"
 URL is ${url}${diff}
+${add}
 CHANGE
 }
 

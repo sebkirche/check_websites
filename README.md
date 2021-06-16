@@ -4,7 +4,7 @@ check.pl - An automatic page change tester written in Perl.
 
 # VERSION
 
-v0.9.2
+v0.9.3
 
 # SYNOPSIS
 
@@ -39,7 +39,7 @@ For each site, you can configure
     
     - `rx_text` a regex pattern that is run on the document visible body text
     
-    - `rx_content` a regex pattern that is run on the document content (e.g. you can match on javascript code).
+    - `rx_raw` a regex pattern that is run on the document content (e.g. you can match on javascript code).
 
 # OPTIONS
 
@@ -62,6 +62,10 @@ For each site, you can configure
 - **-l --list**
 
     List the sites monitored.
+
+- **-D --showdata**
+
+    Display the data that is currently stored to perform compares.
 
 - **-t --test**
 
