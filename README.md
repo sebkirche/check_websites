@@ -4,7 +4,7 @@ check.pl - An automatic page change tester written in Perl.
 
 # VERSION
 
-v0.9.1
+v0.9.2
 
 # SYNOPSIS
 
@@ -27,6 +27,20 @@ This is a simple tool that can monitor a list of websites and will send a mail i
 
 Typical usage is to be run periodically from a Cron job.
 
+For each site, you can configure
+
+- `name` the name displayed for a site in outpout / emails.
+
+- `url` an url to retrieve
+
+- one of the following tests:
+
+    - `xpath` a xpath to retrieve in the document on which the comparison is made. Beware if you define the xpath using a browser: sometimes the browser is beautifying / fixing the page structure and you may not understand why your xpath fails for the check. In such case, take a look in the actual raw document retrieved by curl / wget.
+    
+    - `rx_text` a regex pattern that is run on the document visible body text
+    
+    - `rx_content` a regex pattern that is run on the document content (e.g. you can match on javascript code).
+
 # OPTIONS
 
 - **-h --help**
@@ -48,3 +62,7 @@ Typical usage is to be run periodically from a Cron job.
 - **-l --list**
 
     List the sites monitored.
+
+- **-t --test**
+
+    Performs only a test of the configured sites and display a result. No email is sent and data are not persisted.

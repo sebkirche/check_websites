@@ -35,14 +35,15 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.1';
+our $VERSION = '0.9.2';
 
-my ($arg_hlp, $arg_man, $arg_debug, $arg_verbose, $arg_list) = (0,0,0,0,0);
+my ($arg_hlp, $arg_man, $arg_debug, $arg_verbose, $arg_list, $arg_testonly) = (0,0,0,0,0,0);
 GetOptions(
     'help|h|?'  => \$arg_hlp,
     'man'       => \$arg_man,
     'debug|d'   => \$arg_debug,
     'list|l'    => \$arg_list,
+    'test|t'    => \$arg_testonly,
     'verbose|v' => \$arg_verbose,
     ) or pod2usage(2);
 pod2usage(1) if $arg_hlp;
@@ -133,20 +134,45 @@ PAGE: for my $p (@$pages){
             my $xpath = $p->{xpath};
             my $tree = new HTML::TreeBuilder::XPath;
             $tree->parse($res->decoded_content);
+            $tree->eof;
             $content = $tree->findvalue($xpath);
             $tree->delete;
-        } elsif (exists $p->{rx_match}){
-            my $re = $p->{rx_match};
-            # say $re;
-            my $tree = new HTML::TreeBuilder;
-            $tree->parse($res->decoded_content);
-            $content = $tree->as_text;
+        } elsif (exists $p->{rx_text} || exists $p->{rx_content} ){
+            my $re;
+            if ($p->{rx_content}){
+                $re = $p->{rx_content};
+                $content = $res->content;
+            } elsif ($p->{rx_text}){
+                $re = $p->{rx_text};
+                my $tree = new HTML::TreeBuilder;
+                $tree->parse($res->decoded_content);
+                $content = $tree->as_text;
+            }
+            say $re if $arg_debug;
             if ($content =~ /$re/){
-                $content = $&;
+                say " matches" if $arg_debug;
+                $content = $1 || $&;
             }
         } else {
             # else we are computing the change of the whole document
             $content = $res->decoded_content;
+        }
+
+        unless ($content){
+            say "No content ??" if $arg_testonly;
+            my $check;
+            if ($p->{xpath}){
+                $check = "XPath " . $p->{xpath};
+            } elsif ($p->{rx_content}){
+                $check = "RX on html content: " . $p->{rx_content};
+            } elsif ($p->{rx_text}){
+                $check = "RX on body text: " . $p->{rx_text};
+            }
+            send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $arg_testonly;
+In the page of "${name}" the specified check returns an empty result.
+$check
+URL: $url
+EMPTY
         }
         
         # md5_hex expects a string of bytes for input, but content is a decoded string 
@@ -170,15 +196,22 @@ PAGE: for my $p (@$pages){
                 }
                 say " has not changed." if $arg_verbose;
             } else {
-                say " HAS CHANGED !!!" if $arg_verbose;
+                if ($arg_verbose){
+                    if ($arg_testonly){
+                        say " HAS CHANGED ==> $content";
+                    } else {
+                        say " HAS CHANGED !!!";
+                    }
+                }
                 my $diff;
                 if ($persist->{$name}{data}){
                     my $ori = Compress::Zlib::memGunzip(decode_base64($persist->{$name}{data}));
                     $diff = diff( [$ori."\n"], [$content."\n"]) if $ori;
                 }
-                # Note: empty defined email allows disabling email
-                notify_change($name, $url, $diff, $notify_mail) if $notify_mail;
-        
+                unless ($arg_testonly){
+                    # Note: empty defined email allows disabling email
+                    notify_change($name, $url, $diff, $notify_mail) if $notify_mail;
+                }
                 # Save the retrieved data only on fetch success & change
                 # same comment than for md5_hex: compress expects bytes
                 # we could also "use bytes;"
@@ -217,11 +250,12 @@ PAGE: for my $p (@$pages){
     $persist->{$name}{last_ok_time} = $persist->{$name}{last_check_time} if $res->is_success;
 }
 
-open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for saving states: $!";
-my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
-print $p $dd->Dump;
-close $p;
-
+unless ($arg_testonly){
+    open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for saving states: $!";
+    my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
+    print $p $dd->Dump;
+    close $p;
+}
 say "Done." if $arg_verbose;
 
 sub retrieve_url {
@@ -233,14 +267,22 @@ sub retrieve_url {
 
 sub list_sites {
     if ($arg_verbose){
-        say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part';
+        say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
     }
     for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
         my $url = $site->{url};
-        my $part = exists $site->{xpath} ? 'XPath:'.$site->{xpath} :
-            exists $site->{rx_match} ? 'Rx:/'.$site->{rx_match}.'/' : "(Full page)";
+        my $part;
+        if (exists $site->{xpath}){
+            $part = 'XPath:'.$site->{xpath};
+        } elsif (exists $site->{rx_text}){
+            $part = 'RxT:/'.$site->{rx_text}.'/';
+        } elsif (exists $site->{rx_content}){
+            $part = 'RxC:/'.$site->{rx_content}.'/';
+        } else {
+            $part = "(Full page)";
+        }
         my $last = "";
         if ($arg_verbose){
             my $state = $persist->{$site->{name}};
@@ -345,6 +387,10 @@ Activate the debug flag (show SMTP details).
 =item B<-l --list>
 
 List the sites monitored.
+
+=item B<-t --test>
+
+Just perform the test, do not notify / persist results.
 
 =back
 

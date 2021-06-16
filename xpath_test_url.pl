@@ -19,6 +19,7 @@ if ($response->is_success){
     $t->parse( $response->content);
     $t->eof;
     if($ARGV[1]){
+        say $t->findvalue($ARGV[1]);
         my @nodes = $t->findnodes($ARGV[1]);
         if (@nodes){
             for my $node (@nodes){
