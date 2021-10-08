@@ -63,7 +63,7 @@ die "Cannot do $cfg_file: $!" unless defined $cfg;
 die "Cannot run $cfg_file" unless $cfg;
 
 my $net_check       = $cfg->{net_check};
-my $pages           = $cfg->{pages};
+my $pages           = $cfg->{pages}; # pages is the arrayref of each page to check
 my $persist_file    = $cfg->{persist_file};
 my $mail_from       = $cfg->{mail_from};
 my $default_mail_to = $cfg->{mail_to};
@@ -71,7 +71,7 @@ my $mail_server     = $cfg->{mail_server};
 my $persist         = {};
 
 my $host   = hostname();
-my $whom   = getlogin();
+my $whom   = getlogin() || getpwuid($<); # $< is real uid of this process
 my $path   = $Bin;
 my $script = basename($0);
 setlocale(LC_TIME, 'C');        # to avoid incorrectly encoded accents in the mail - need to set it as setting?
@@ -94,7 +94,8 @@ if ($args{list}){
 # - and because some websites refuse to serve Perl ⇒ 406 - Not acceptable
 my $ua = new LWP::UserAgent( 
     env_proxy => 1,
-    agent      => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', 
+    agent     => 'Mozilla/4.73 [en] (X11; I; Linux 2.2.16 i686; Nav)', # impersonate Firefox
+    ssl_opts  => { verify_hostname => 0 } 
     );
 
 printf "%s --------------------------------------------------\n", stringify_datetime(time, 1) if $args{verbose};
@@ -157,6 +158,11 @@ PAGE: for my $p (@$pages){
             } else {
                 $content = "NO MATCH";
                 say " NO MATCH ??";
+                send_mail($mail_from, $notify_mail, "No match for '$name'", <<"NOMATCH") unless $args{test};
+In the page of "${name}" the specified regex matches nothing.
+$re
+URL: $url
+NOMATCH
             }
         } else {
             # else we are computing the change of the whole document
@@ -174,7 +180,7 @@ PAGE: for my $p (@$pages){
                 $check = "RX on body text: " . $p->{rx_text};
             }
             send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $args{test};
-In the page of "${name}" the specified check returns an empty result.
+In the page of "${name}" the specified URL returns an empty content.
 $check
 URL: $url
 EMPTY
