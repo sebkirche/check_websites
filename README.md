@@ -4,7 +4,7 @@ check.pl - An automatic page change tester written in Perl.
 
 # VERSION
 
-v0.9.3
+v0.9.4
 
 # SYNOPSIS
 
@@ -54,6 +54,9 @@ For each site, you can configure
 - **-v --verbose**
 
     Show verbose messages during processing.
+
+- **--showdata**
+    Show the stored data. Implies --list.
 
 - **-d --debug**
 
