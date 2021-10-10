@@ -35,7 +35,7 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.3';
+our $VERSION = '0.9.4';
 
 my %args;
 GetOptions(\%args,
