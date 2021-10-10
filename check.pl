@@ -53,6 +53,9 @@ pod2usage(-exitval => 0, -verbose => 2) if $args{man};
 # debug implies verbose
 $args{verbose} = 1 if $args{debug};
 
+# showdata implies list
+$args{list} = 1 if $args{showdata};
+
 my $cfg_file = "$Bin/check.cfg";
 
 # Read our poor man's config file
@@ -152,7 +155,7 @@ PAGE: for my $p (@$pages){
                 $content = $tree->as_text;
             }
             say $re if $args{debug};
-            if ($content =~ /$re/){
+            if ($content =~ /$re/i){
                 say " matches" if $args{debug};
                 $content = $1 || $&;
             } else {
@@ -330,12 +333,13 @@ sub stringify_datetime {
 }
 
 sub notify_change {
-    my ($name, $url, $diff, $email, $add) = @_;
+    my ($name, $url, $diff, $email, $additional_text) = @_;
     $diff = $diff ? "\n\nDiff: $diff" : '';
+    $additional_text = '' unless $additional_text;
     send_mail($mail_from, $email, "Change detected for '$name'", <<"CHANGE");
 A change has been detected in the page of "${name}"
 URL is ${url}${diff}
-${add}
+${additional_text}
 CHANGE
 }
 
@@ -400,6 +404,10 @@ Display the full manual.
 =item B<-v --verbose>
 
 Show verbose messages during processing.
+
+=item B<--showdata>
+
+Show the stored data. Implies --list.
 
 =item B<-d --debug>
 
