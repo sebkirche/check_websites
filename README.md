@@ -55,9 +55,6 @@ For each site, you can configure
 
     Show verbose messages during processing.
 
-- **--showdata**
-    Show the stored data. Implies --list.
-
 - **-d --debug**
 
     Activate the debug flag (show SMTP details).

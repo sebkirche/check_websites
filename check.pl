@@ -405,10 +405,6 @@ Display the full manual.
 
 Show verbose messages during processing.
 
-=item B<--showdata>
-
-Show the stored data. Implies --list.
-
 =item B<-d --debug>
 
 Activate the debug flag (show SMTP details).
@@ -416,6 +412,10 @@ Activate the debug flag (show SMTP details).
 =item B<-l --list>
 
 List the sites monitored.
+
+=item B<-D --showdata>
+
+Show the stored data. Implies --list.
 
 =item B<-t --test>
 
