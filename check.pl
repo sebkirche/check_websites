@@ -283,7 +283,7 @@ sub list_sites {
     if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
     } elsif ($args{showdata}) {
-        say sprintf "%35s - %-60s %s", 'Name', 'Last check', 'Value';
+        say sprintf "%35s - %-35s %s", 'Name', 'Last check', 'Value';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
     }
