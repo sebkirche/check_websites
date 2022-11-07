@@ -9,7 +9,7 @@ use LWP::UserAgent;
 
 die "Usage: $0 <url> /html/body/whatever
         or  $0 <url> -t <text_regex>
-        or  $0 <url> -r <raw_regex>" unless $#ARGV;
+        or  $0 <url> -r <raw_regex>" unless $#ARGV >= 1;
 
 my $url = $ARGV[0];
 my $t = new HTML::TreeBuilder::XPath;

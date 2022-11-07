@@ -160,7 +160,7 @@ PAGE: for my $p (@$pages){
                 $content = $1 || $&;
             } else {
                 $content = "NO MATCH";
-                say " NO MATCH ??";
+                say " NO MATCH ??" if $args{debug};
                 send_mail($mail_from, $notify_mail, "No match for '$name'", <<"NOMATCH") unless $args{test};
 In the page of "${name}" the specified regex matches nothing.
 $re
@@ -283,7 +283,7 @@ sub list_sites {
     if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
     } elsif ($args{showdata}) {
-        say sprintf "%35s - %-60s", 'Name', 'Last check', 'Value';
+        say sprintf "%35s - %-60s %s", 'Name', 'Last check', 'Value';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
     }
