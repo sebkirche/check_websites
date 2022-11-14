@@ -35,7 +35,7 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.4';
+our $VERSION = '0.9.5';
 
 my %args;
 GetOptions(\%args,
@@ -161,11 +161,15 @@ PAGE: for my $p (@$pages){
             } else {
                 $content = "NO MATCH";
                 say " NO MATCH ??" if $args{debug};
-                send_mail($mail_from, $notify_mail, "No match for '$name'", <<"NOMATCH") unless $args{test};
+                my $previous_data = Compress::Zlib::memGunzip(decode_base64($persist->{$p->{name}}{data}));
+                unless ($previous_data eq 'NO MATCH'){
+                    # email only on first time
+                    send_mail($mail_from, $notify_mail, "No match for '$name'", <<"NOMATCH") unless $args{test};
 In the page of "${name}" the specified regex matches nothing.
 $re
 URL: $url
 NOMATCH
+                }
             }
         } else {
             # else we are computing the change of the whole document
@@ -210,6 +214,7 @@ EMPTY
                 }
                 say " has not changed." if $args{verbose};
             } else {
+                # this is a different content
                 if ($args{verbose}){
                     if ($args{test}){
                         say " HAS CHANGED ==> $content";
@@ -232,6 +237,8 @@ EMPTY
                 my $data = encode_base64(Compress::Zlib::memGzip($content), '');
                 chomp($data);
                 $persist->{$name}{data} = $data; # save the data for future diff
+                $persist->{$name}{last_check_res} = $status;
+                $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
             }
             
         } else {
@@ -240,6 +247,8 @@ EMPTY
             my $data = encode_base64(Compress::Zlib::memGzip($content), '');
             chomp($data);
             $persist->{$name}{data} = $data; # save the data for future diff
+            $persist->{$name}{last_check_res} = $status;
+            $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
         }
         $persist->{$name}{digest} = $digest; # save the hash
     } else {
@@ -257,11 +266,16 @@ EMPTY
             # first error
             send_mail($mail_from, $default_mail_to, "Problem encountered while checking for '$name'", $msg);
         }
+        my $previous_status = $persist->{$name}{last_check_res};
+        if ($status ne $previous_status){
+            $persist->{$name}{last_check_res} = $status;
+            $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
+        }
     }
     
-    $persist->{$name}{last_check_res} = $status;
-    $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
     $persist->{$name}{last_ok_time} = $persist->{$name}{last_check_time} if $res->is_success;
+    $persist->{__VERSION__} = $VERSION;
+    $persist->{__last_run__} = stringify_datetime(time, 1);
 }
 
 unless ($args{test}){
@@ -308,14 +322,15 @@ sub list_sites {
         } else {
             $last .= "??";
         }
-        $last .= " (DISABLED)" unless $site->{enable} // 1;
 
+        my $enabled = ($site->{enable} // 1) ? ' ' : '-';
+        
         if ($args{verbose}){
-            say sprintf "%35s - %-60s %-35s %s", $site->{name}, $url, $last, $part;
+            say sprintf "%35s %s %-60s %-35s %s", $site->{name}, $enabled, $url, $last, $part;
         } elsif ($args{showdata}) {
-            say sprintf "%35s - %-35s %s", $site->{name}, $last, $value;
+            say sprintf "%35s %s %-35s %s", $site->{name}, $enabled, $last, $value;
         } else {
-            say sprintf "%35s - %-60s", $site->{name}, $url;
+            say sprintf "%35s %s %-60s", $site->{name}, $enabled, $url;
         }
     }
 }
@@ -377,7 +392,7 @@ check.pl - An automatic page change tester written in Perl.
 
 =head1 VERSION
 
-v0.9.1
+v0.9.5
 
 =head1 SYNOPSIS
 
