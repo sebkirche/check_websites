@@ -40,6 +40,8 @@ For each site, you can configure
     - `rx_text` a regex pattern that is run on the document visible body text
     
     - `rx_raw` a regex pattern that is run on the document content (e.g. you can match on javascript code).
+    
+    - if no test is configured, the whole content of the url is retrived and kept gzipped, future checks will make diffs on the whole page.
 
 # OPTIONS
 
