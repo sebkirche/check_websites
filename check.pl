@@ -35,9 +35,9 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.5';
+our $VERSION = '0.9.6';
 
-my %args;
+my %args = ( truncate => 75 );;
 GetOptions(\%args,
            'help|h|?',
            'man',
@@ -45,6 +45,7 @@ GetOptions(\%args,
            'list|l',
            'showdata|D',
            'test|t',
+           'truncate|T=s',
            'verbose|v'
     ) or pod2usage(2);
 pod2usage(1) if $args{help};
@@ -319,6 +320,10 @@ sub list_sites {
         if (defined $state){
             $last .= "$state->{last_check_res} ($state->{last_check_time})";
             $value = Compress::Zlib::memGunzip(decode_base64($persist->{$site->{name}}{data}));
+            if ($args{truncate} && length $value > $args{truncate}){
+                $value = substr($value,0, $args{truncate}) . '[...]';
+            }
+            $value =~ s/\n/\\n/g; # fake newline to avoid breaking the display
         } else {
             $last .= "??";
         }
@@ -386,6 +391,8 @@ MSG
 
 __END__
 
+=encoding UTF-8
+
 =head1 NAME
 
 check.pl - An automatic page change tester written in Perl.
@@ -393,6 +400,10 @@ check.pl - An automatic page change tester written in Perl.
 =head1 VERSION
 
 v0.9.5
+
+=head1 AUTHOR
+
+Sébastien Kirche, C<< <sebastien.kirche at free.fr> >>
 
 =head1 SYNOPSIS
 
@@ -435,6 +446,10 @@ Show the stored data. Implies --list.
 =item B<-t --test>
 
 Just perform the test, do not notify / persist results.
+
+=item B<-T --truncate <length>>
+
+To be used with -D, set a maximum data length shown. Default = 75. If set to 0, do not truncate.
 
 =back
 
