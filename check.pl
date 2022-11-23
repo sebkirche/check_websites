@@ -217,6 +217,8 @@ EMPTY
                     my $msg = "Previous check of ${url} at ${last_time} got `${last_res}`.";
                     $msg .= "\nLast time it was OK: " . ($persist->{$name}{last_ok_time} || 'never') . '.';
                     send_mail($mail_from, $default_mail_to, "'${name}' is back online", $msg);
+                    $persist->{$name}{last_check_res} = $status;
+                    $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
                 }
                 say " has not changed." if $args{verbose};
             } else {
