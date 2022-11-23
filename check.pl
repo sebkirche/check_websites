@@ -245,9 +245,9 @@ EMPTY
                 my $data = encode_base64(Compress::Zlib::memGzip($content), '');
                 chomp($data);
                 $persist->{$name}{data} = $data; # save the data for future diff
+                $persist->{$name}{last_check_res} = $status;
+                $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
             }
-            $persist->{$name}{last_check_res} = $status;
-            $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
             
         } else {
             # no previous digest: first time we have a result for the url
@@ -309,6 +309,7 @@ sub list_sites {
     if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
     } elsif ($args{showdata}) {
+        say "Last run: " . $persist->{__last_run__};
         say sprintf "%35s - %-35s %s", 'Name', 'Last check', 'Value';
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
