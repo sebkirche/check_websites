@@ -35,7 +35,7 @@ use Compress::Zlib;
 $|++; # auto flush messages
 $Data::Dumper::Sortkeys = 1;
 
-our $VERSION = '0.9.6';
+our $VERSION = '0.9.7';
 
 my %args = ( truncate => 75 );;
 GetOptions(\%args,
@@ -178,22 +178,27 @@ NOMATCH
         }
 
         unless ($content){
+            $content = "NO CONTENT";
             say "No content ??" if $args{test};
-            my $check;
-            if ($p->{xpath}){
-                $check = "XPath " . $p->{xpath};
-            } elsif ($p->{rx_raw}){
-                $check = "RX on html content: " . $p->{rx_raw};
-            } elsif ($p->{rx_text}){
-                $check = "RX on body text: " . $p->{rx_text};
-            }
-            send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $args{test};
+            my $previous_data = Compress::Zlib::memGunzip(decode_base64($persist->{$p->{name}}{data}));
+            unless ($previous_data eq 'NO CONTENT'){
+                my $check;
+                if ($p->{xpath}){
+                    $check = "XPath " . $p->{xpath};
+                } elsif ($p->{rx_raw}){
+                    $check = "RX on html content: " . $p->{rx_raw};
+                } elsif ($p->{rx_text}){
+                    $check = "RX on body text: " . $p->{rx_text};
+                }
+                send_mail($mail_from, $notify_mail, "No content from check for '$name'", <<"EMPTY") unless $args{test};
 In the page of "${name}" the specified URL returns an empty content.
 $check
 URL: $url
 EMPTY
+            }
         }
-        
+
+        # We compute a digest of the result for faster future comparison
         # md5_hex expects a string of bytes for input, but content is a decoded string 
         # (i.e a string that may content Unicode Code Points). Explicitly encode the string if needed.
         if (utf8::is_utf8($content)){
@@ -238,12 +243,12 @@ EMPTY
                 my $data = encode_base64(Compress::Zlib::memGzip($content), '');
                 chomp($data);
                 $persist->{$name}{data} = $data; # save the data for future diff
-                $persist->{$name}{last_check_res} = $status;
-                $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
             }
+            $persist->{$name}{last_check_res} = $status;
+            $persist->{$name}{last_check_time} = stringify_datetime(time, 1);
             
         } else {
-            # first time we have a result for the url
+            # no previous digest: first time we have a result for the url
             say " was not monitored yet." if $args{verbose};
             my $data = encode_base64(Compress::Zlib::memGzip($content), '');
             chomp($data);
@@ -279,6 +284,7 @@ EMPTY
     $persist->{__last_run__} = stringify_datetime(time, 1);
 }
 
+# do not persist data for tests
 unless ($args{test}){
     open my $p, '>', "$Bin/$persist_file" or die "Cannot open $Bin/$persist_file for saving states: $!";
     my $dd = new Data::Dumper( [ $persist ] , [ 'persist' ] );
@@ -287,6 +293,8 @@ unless ($args{test}){
 }
 say "Done." if $args{verbose};
 
+# ============== End of main process =========================
+
 sub retrieve_url {
     my ($ua, $method, $url) = @_;
     my $req = new HTTP::Request( $method => $url );
@@ -294,6 +302,7 @@ sub retrieve_url {
     return $res;
 }
 
+# pretty print list of sites
 sub list_sites {
     if ($args{verbose}){
         say sprintf "%35s - %-60s %-35s %s", 'Name', 'URL', 'Last check', 'Part [XPath/ Rx(Content) / Rx(Text)]';
