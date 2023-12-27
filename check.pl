@@ -386,7 +386,7 @@ sub send_mail {
 From: ${from}
 To: ${to}
 Subject: ${subject}
-Content-Type: text/plain;
+Content-Type: text/plain;charset=utf-8;
 
 ${message}
 ---
