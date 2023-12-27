@@ -314,7 +314,7 @@ sub list_sites {
     } else {
         say sprintf "%35s - %-60s", 'Name', 'URL';
     }
-    for my $site (sort { $a->{name} cmp $b->{name} } @$pages){
+    for my $site (sort { lc($a->{name}) cmp lc($b->{name}) } @$pages){
         my $url = $site->{url};
         my $part;
         if (exists $site->{xpath}){
